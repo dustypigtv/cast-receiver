@@ -1,0 +1,6 @@
+cast-media-player {
+  --splash-color: black;
+  --splash-image: url('images/logo.png');
+  --splash-size: cover;
+  --progress-color: rgb(237, 109, 199);
+}
