@@ -3,33 +3,34 @@ const playerManager = context.getPlayerManager();
 
 
 // Debug Logger
-//const castDebugLogger = cast.debug.CastDebugLogger.getInstance();
-//const LOG_TAG = 'MyAPP.LOG';
+const castDebugLogger = cast.debug.CastDebugLogger.getInstance();
+const LOG_TAG = 'MyAPP.LOG';
 
 // Enable debug logger and show a 'DEBUG MODE' overlay at top left corner.
-//castDebugLogger.setEnabled(true);
+castDebugLogger.setEnabled(false);
 
 // Show debug overlay
-//castDebugLogger.showDebugLogs(false);
+castDebugLogger.showDebugLogs(false);
 
 // Set verbosity level for Core events.
-//castDebugLogger.loggerLevelByEvents = {
-//	'cast.framework.events.category.CORE': cast.framework.LoggerLevel.INFO,
-//	'cast.framework.events.EventType.MEDIA_STATUS': cast.framework.LoggerLevel.DEBUG
-//}
+castDebugLogger.loggerLevelByEvents = {
+	//'cast.framework.events.category.CORE': cast.framework.LoggerLevel.INFO,
+	//'cast.framework.events.EventType.MEDIA_STATUS': cast.framework.LoggerLevel.INFO
+}
 
 // Set verbosity level for custom tags.
-//castDebugLogger.loggerLevelByTags = {
-//	LOG_TAG: cast.framework.LoggerLevel.DEBUG,
-//};
+castDebugLogger.loggerLevelByTags = {
+	LOG_TAG: cast.framework.LoggerLevel.DEBUG,
+};
 
 
 const defaultBackdropUrl = "https://s3.dustypig.tv/cast-receiver/images/logo.png";
 
-var TOKEN = ""
-var LAST_TIME = 0
-var MEDIA_TYPE = ""
-var MEDIA_ID = 0
+var TOKEN = "";
+var LAST_TIME = 0;
+var MEDIA_TYPE = "";
+var MEDIA_ID = 0;
+var QUEUE_ID = 0;
 
 
 function postUpdate (secnds) {
@@ -74,6 +75,9 @@ function postUpdate (secnds) {
 
 
 playerManager.setMessageInterceptor(cast.framework.messages.MessageType.LOAD, loadRequestData => {
+	
+	castDebugLogger.debug(LOG_TAG, "playerManager.setMessageInterceptor", loadRequestData);
+		
 	MEDIA_ID = loadRequestData.media.contentId;
 	return loadRequestData;
 });
@@ -82,8 +86,13 @@ playerManager.setMessageInterceptor(cast.framework.messages.MessageType.LOAD, lo
 
 playerManager.addEventListener(cast.framework.events.EventType.TIME_UPDATE, mediaElementEvent => {
 	
-	if(MEDIA_ID <= 0)
+	if(MEDIA_ID <= 0) {
 		return;
+	}
+	
+	if(mediaElementEvent.currentMediaTime < 1) {
+		return;
+	}
 	
 	var diff = Math.abs(LAST_TIME - mediaElementEvent.currentMediaTime);
 	if(diff >= 1.0) {
@@ -114,18 +123,26 @@ const CustomQueue = class extends cast.framework.QueueBase {
 	*/
 	initialize(loadRequestData) {
 		
+		castDebugLogger.debug(LOG_TAG, "CustomQueue.initialize", loadRequestData);
+		
 		MEDIA_ID = 0;		
 		TOKEN = loadRequestData.credentials;
 		LAST_TIME = 0;
 		
-		var parts = loadRequestData.media.entity.split("://")[1].split("/");
+		var parts = loadRequestData.queueData.entity.split("://")[1].split("/");
 		MEDIA_TYPE = parts[0];
 		
 		var mid = parts[1];
+		
+		var nuid = -1;
+		if(parts.length > 2) {
+			nuid = parseInt(parts[2]);
+		}
+		
 		if(MEDIA_TYPE == "series") {
-			return this.loadSeries(mid);
+			return this.loadSeries(mid, nuid);
 		} else if(MEDIA_TYPE == "playlist") {
-			return this.loadPlaylist(mid);
+			return this.loadPlaylist(mid, nuid);
 		} else { //MEDIA_TYPE == "movie"
 			return this.loadMovie(mid);
 		}
@@ -141,7 +158,7 @@ const CustomQueue = class extends cast.framework.QueueBase {
 	}
 	
 	
-	loadSeries(seriesId) {
+	loadSeries(seriesId, nuid) {
 		
 		let queueData = new cast.framework.messages.QueueData();
 		queueData.items = [];
@@ -177,10 +194,16 @@ const CustomQueue = class extends cast.framework.QueueBase {
 				
 				queueData.items.push(item);
 				
-				if(ep.up_next) {
-					queueData.startIndex = idx;
-					if(ep.hasOwnProperty("played") && ep["played"]) {
-						queueData.startTime = ep.played;
+				if(nuid > 0) {
+					if(ep.id == nuid) {
+						queueData.startIndex = idx;
+					}
+				} else {
+					if(ep.up_next) {
+						queueData.startIndex = idx;
+						if(ep.hasOwnProperty("played") && ep["played"]) {
+							queueData.startTime = ep.played;
+						}
 					}
 				}				
 				idx++;
@@ -190,7 +213,7 @@ const CustomQueue = class extends cast.framework.QueueBase {
 		return queueData;
 	}
 	
-	loadPlaylist(playlistId) {
+	loadPlaylist(playlistId, nuid) {
 		
 		let queueData = new cast.framework.messages.QueueData();
 		queueData.items = [];
@@ -217,14 +240,19 @@ const CustomQueue = class extends cast.framework.QueueBase {
 				
 				queueData.items.push(item);
 				
-				if(data.data.hasOwnProperty("current_item_id") && data.data["current_item_id"] && pli.id == data.data.current_item_id) {
-					queueData.startIndex = idx;
-				}				
+				if(nuid > 0) {
+					if(pli.id == nuid) {
+						queueData.startIndex = idx;
+					}
+				} else {
+					if(data.data.hasOwnProperty("current_item_id") && data.data["current_item_id"] && pli.id == data.data.current_item_id) {
+						queueData.startIndex = idx;
+						if(data.data.hasOwnProperty("current_progress") && data.data["current_progress"]) {
+							queueData.startTime = data.data.current_progress;
+						}
+					}
+				}
 				idx++;
-			}
-			
-			if(data.data.hasOwnProperty("current_progress") && data.data["current_progress"]) {
-				queueData.startTime = data.data.current_progress;
 			}
 		}
 		
@@ -232,6 +260,8 @@ const CustomQueue = class extends cast.framework.QueueBase {
 	}
 	
 	loadMovie(movieId) {
+		
+		castDebugLogger.debug(LOG_TAG, "CustomQueue.loadMovie", movieId);
 		
 		let queueData = new cast.framework.messages.QueueData();
 		queueData.items = [];
