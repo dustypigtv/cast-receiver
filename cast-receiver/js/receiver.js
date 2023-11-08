@@ -4,7 +4,7 @@ const playerManager = context.getPlayerManager();
 
 // Debug Logger
 const castDebugLogger = cast.debug.CastDebugLogger.getInstance();
-const LOG_TAG = 'MyAPP.LOG';
+const LOG_TAG = 'DustyPig.LOG';
 
 // Enable debug logger and show a 'DEBUG MODE' overlay at top left corner.
 castDebugLogger.setEnabled(false);
