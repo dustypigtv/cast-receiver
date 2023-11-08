@@ -234,6 +234,7 @@ const CustomQueue = class extends cast.framework.QueueBase {
 				item.media.metadata = new cast.framework.messages.GenericMediaMetadata();
 				item.media.metadata.posterUrl = defaultBackdropUrl;
 				item.media.metadata.title = pli.title;
+				item.media.metadata.subtitle = data.data.name;
 				
 				item.media.metadata.images = [];
 				item.media.metadata.images.push(new cast.framework.messages.Image(pli.artwork_url));
