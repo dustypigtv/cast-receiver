@@ -143,6 +143,9 @@ const CustomQueue = class extends cast.framework.QueueBase {
 			return this.loadSeries(mid, nuid);
 		} else if(MEDIA_TYPE == "playlist") {
 			return this.loadPlaylist(mid, nuid);
+		} else if(MEDIA_TYPE == "episode"){
+			MEDIA_TYPE = "series";
+			return this.loadEpisode(mid);
 		} else { //MEDIA_TYPE == "movie"
 			return this.loadMovie(mid);
 		}
@@ -158,7 +161,32 @@ const CustomQueue = class extends cast.framework.QueueBase {
 	}
 	
 	
+	loadEpisode(episodeId) {
+		
+		//Get the series id and load the series, starting at this episode
+		
+		castDebugLogger.debug(LOG_TAG, "CustomQueue.loadEpisode", episodeId);
+		
+		const data = this.makeRequest("https://service.dustypig.tv/api/v3/Episodes/Details/" + episodeId);
+				
+		if (data.success) {
+			
+			return loadSeries(data.data.series_id, episodeId);
+			
+		} else {
+			
+			let queueData = new cast.framework.messages.QueueData();
+			queueData.items = [];
+			return queueData;
+		
+		}
+	}
+	
+	
+	
 	loadSeries(seriesId, nuid) {
+		
+		castDebugLogger.debug(LOG_TAG, "CustomQueue.loadSeries", seriesId);
 		
 		let queueData = new cast.framework.messages.QueueData();
 		queueData.items = [];
@@ -197,15 +225,16 @@ const CustomQueue = class extends cast.framework.QueueBase {
 				if(nuid > 0) {
 					if(ep.id == nuid) {
 						queueData.startIndex = idx;
-					}
-				} else {
-					if(ep.up_next) {
-						queueData.startIndex = idx;
 						if(ep.hasOwnProperty("played") && ep["played"]) {
 							queueData.startTime = ep.played;
 						}
 					}
-				}				
+				} else if(ep.up_next) {
+					queueData.startIndex = idx;
+					if(ep.hasOwnProperty("played") && ep["played"]) {
+						queueData.startTime = ep.played;
+					}
+				}
 				idx++;
 			}
 		}
@@ -214,6 +243,8 @@ const CustomQueue = class extends cast.framework.QueueBase {
 	}
 	
 	loadPlaylist(playlistId, nuid) {
+		
+		castDebugLogger.debug(LOG_TAG, "CustomQueue.loadPlaylist", playlistId);
 		
 		let queueData = new cast.framework.messages.QueueData();
 		queueData.items = [];
@@ -244,13 +275,14 @@ const CustomQueue = class extends cast.framework.QueueBase {
 				if(nuid > 0) {
 					if(pli.id == nuid) {
 						queueData.startIndex = idx;
-					}
-				} else {
-					if(data.data.hasOwnProperty("current_item_id") && data.data["current_item_id"] && pli.id == data.data.current_item_id) {
-						queueData.startIndex = idx;
 						if(data.data.hasOwnProperty("current_progress") && data.data["current_progress"]) {
 							queueData.startTime = data.data.current_progress;
 						}
+					}
+				} else if(data.data.hasOwnProperty("current_item_id") && data.data["current_item_id"] && pli.id == data.data.current_item_id) {
+					queueData.startIndex = idx;
+					if(data.data.hasOwnProperty("current_progress") && data.data["current_progress"]) {
+						queueData.startTime = data.data.current_progress;
 					}
 				}
 				idx++;
