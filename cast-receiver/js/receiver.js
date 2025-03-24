@@ -171,7 +171,7 @@ const CustomQueue = class extends cast.framework.QueueBase {
 				
 		if (data.success) {
 			
-			return loadSeries(data.data.series_id, episodeId);
+			return loadSeries(data.data.seriesId, episodeId);
 			
 		} else {
 			
@@ -192,11 +192,11 @@ const CustomQueue = class extends cast.framework.QueueBase {
 		queueData.items = [];
 		
 		const data = this.makeRequest("https://service.dustypig.tv/api/v3/Series/Details/" + seriesId);
-		if (data.success && data.data.can_play) {
+		if (data.success && data.data.canPlay) {
 			
 			var backdropUrl = defaultBackdropUrl;
-			if (data.data.hasOwnProperty("backdrop_url") && data.data["backdrop_url"]) {
-				backdropUrl = data.data.backdrop_url;
+			if (data.data.hasOwnProperty("backdropUrl") && data.data["backdropUrl"]) {
+				backdropUrl = data.data.backdropUrl;
 			}			
 		
 			var idx = 0;
@@ -207,18 +207,18 @@ const CustomQueue = class extends cast.framework.QueueBase {
 				
 				item.media = new cast.framework.messages.MediaInformation();			
 				item.media.contentId = ep.id.toString();
-				item.media.contentUrl = ep.video_url;
+				item.media.contentUrl = ep.videoUrl;
 				
 				item.media.metadata = new cast.framework.messages.TvShowMediaMetadata();
 				item.media.metadata.posterUrl = backdropUrl;
 				item.media.metadata.seriesTitle = data.data.title;
-				item.media.metadata.episode = ep.episode_number;
-				item.media.metadata.season = ep.season_number;
+				item.media.metadata.episode = ep.episodeNumber;
+				item.media.metadata.season = ep.seasonNumber;
 				item.media.metadata.title = ep.title;
 				
 				
 				item.media.metadata.images = [];
-				item.media.metadata.images.push(new cast.framework.messages.Image(data.data.artwork_url));
+				item.media.metadata.images.push(new cast.framework.messages.Image(data.data.artworkUrl));
 				
 				queueData.items.push(item);
 				
@@ -229,7 +229,7 @@ const CustomQueue = class extends cast.framework.QueueBase {
 							queueData.startTime = ep.played;
 						}
 					}
-				} else if(ep.up_next) {
+				} else if(ep.upNext) {
 					queueData.startIndex = idx;
 					if(ep.hasOwnProperty("played") && ep["played"]) {
 						queueData.startTime = ep.played;
@@ -251,38 +251,43 @@ const CustomQueue = class extends cast.framework.QueueBase {
 		
 		const data = this.makeRequest("https://service.dustypig.tv/api/v3/Playlists/Details/" + playlistId);
 		if (data.success && data.data.hasOwnProperty("items") && data.data["items"]) {
-			
+		
 			var idx = 0;
 			for(const pli of data.data.items) {
+				
+				var backdropUrl = defaultBackdropUrl;
+				if (pli.hasOwnProperty("artworkUrl") && pli["artworkUrl"]) {
+					backdropUrl = pli.artworkUrl;
+				}	
 				
 				const item = new cast.framework.messages.QueueItem();
 				item.preloadTime = 10;
 				
 				item.media = new cast.framework.messages.MediaInformation();	
 				item.media.contentId = pli.id.toString();
-				item.media.contentUrl = pli.video_url;
+				item.media.contentUrl = pli.videoUrl;
 				
 				item.media.metadata = new cast.framework.messages.GenericMediaMetadata();
-				item.media.metadata.posterUrl = defaultBackdropUrl;
+				item.media.metadata.posterUrl = backdropUrl;
 				item.media.metadata.title = pli.title;
 				item.media.metadata.subtitle = data.data.name;
 				
 				item.media.metadata.images = [];
-				item.media.metadata.images.push(new cast.framework.messages.Image(pli.artwork_url));
+				item.media.metadata.images.push(new cast.framework.messages.Image(data.data.artworkUrl));
 				
 				queueData.items.push(item);
 				
 				if(nuid > 0) {
 					if(pli.id == nuid) {
 						queueData.startIndex = idx;
-						if(data.data.hasOwnProperty("current_progress") && data.data["current_progress"]) {
-							queueData.startTime = data.data.current_progress;
+						if(data.data.hasOwnProperty("currentProgress") && data.data["currentProgress"]) {
+							queueData.startTime = data.data.currentProgress;
 						}
 					}
-				} else if(data.data.hasOwnProperty("current_item_id") && data.data["current_item_id"] && pli.id == data.data.current_item_id) {
+				} else if(data.data.hasOwnProperty("currentItemId") && data.data["currentItemId"] && pli.id == data.data.currentItemId) {
 					queueData.startIndex = idx;
-					if(data.data.hasOwnProperty("current_progress") && data.data["current_progress"]) {
-						queueData.startTime = data.data.current_progress;
+					if(data.data.hasOwnProperty("currentProgress") && data.data["currentProgress"]) {
+						queueData.startTime = data.data.currentProgress;
 					}
 				}
 				idx++;
@@ -300,18 +305,24 @@ const CustomQueue = class extends cast.framework.QueueBase {
 		queueData.items = [];
 
 		const data = this.makeRequest("https://service.dustypig.tv/api/v3/Movies/Details/" + movieId);
-		if (data.success && data.data.can_play) {
+		
+		castDebugLogger.debug(LOG_TAG, "CustomQueue.data", data);
+		
+		if (data.success && data.data.canPlay) {
+			
+			castDebugLogger.debug(LOG_TAG, "CustomQueue.success && can_play", "true");
+		
 			
 			var backdropUrl = defaultBackdropUrl;
-			if (data.data.hasOwnProperty("backdrop_url") && data.data["backdrop_url"]) {
-				backdropUrl = data.data.backdrop_url;
+			if (data.data.hasOwnProperty("backdropUrl") && data.data["backdropUrl"]) {
+				backdropUrl = data.data.backdropUrl;
 			}			
 				
 			const item = new cast.framework.messages.QueueItem();
 						
 			item.media = new cast.framework.messages.MediaInformation();			
 			item.media.contentId = data.data.id.toString();
-			item.media.contentUrl = data.data.video_url;
+			item.media.contentUrl = data.data.videoUrl;
 			
 			item.media.metadata = new cast.framework.messages.MovieMediaMetadata();
 			item.media.metadata.posterUrl = backdropUrl;
@@ -319,7 +330,7 @@ const CustomQueue = class extends cast.framework.QueueBase {
 			item.media.metadata.releaseDate = data.data.date;
 						
 			item.media.metadata.images = [];
-			item.media.metadata.images.push(new cast.framework.messages.Image(data.data.artwork_url));
+			item.media.metadata.images.push(new cast.framework.messages.Image(data.data.artworkUrl));
 			
 			if(data.data.hasOwnProperty("played") && data.data["played"]) {
 				queueData.startTime = data.data.played;
