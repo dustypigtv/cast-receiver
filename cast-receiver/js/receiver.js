@@ -65,7 +65,8 @@ function postUpdate (secnds) {
 		
 		var jsonData = {
 			id:MEDIA_ID,
-			seconds: secnds
+			seconds: secnds,
+			"asOfUTC": new Date().toISOString()
 		}
 				
 		xhr.send(JSON.stringify(jsonData));
